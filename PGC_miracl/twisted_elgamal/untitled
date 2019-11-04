@@ -1,0 +1,10 @@
+
+    EC_POINT_mul(group, A, e, NULL, NULL, bn_ctx); // return A = g^e
+
+    EC_POINT_mul(group, result, NULL, A, c, bn_ctx); // result = A^c
+
+    EC_POINTs_mul(group, A, NULL, num, h, e, bn_ctx); // return A = h_i^e_i
+
+    EC_POINT_add(group, r, a, b, bn_ctx);
+
+    BN_mod_inverse(a_inverse, a, n, bn_ctx);
