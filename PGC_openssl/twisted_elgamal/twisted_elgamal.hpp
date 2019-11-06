@@ -158,9 +158,8 @@ void Twisted_ElGamal_Setup(Twisted_ElGamal_PP &pp)
 
     // generate pp.h via deterministic manner in order to test Shanks's algorithm
     BIGNUM* e = BN_new(); 
-    vector<EC_POINT*> vec_A(1);
-    vec_A[0] = pp.g;  
-    Hash_GGn_ZZ(e, vec_A); 
+    string ep_str = EC_POINT_ep2string(pp.g); 
+    Hash_String_ZZ(e, ep_str); 
     EC_POINT_mul(group, pp.h, NULL, pp.g, e, bn_ctx); // set h = g^e
     BN_free(e); 
 
@@ -241,7 +240,7 @@ void Twisted_ElGamal_Enc(Twisted_ElGamal_PP &pp,
 }
 
 // Decryption algorithm: compute m = Dec(sk, CT)
-bool Twisted_ElGamal_Dec(Twisted_ElGamal_PP &pp, 
+void Twisted_ElGamal_Dec(Twisted_ElGamal_PP &pp, 
                          BIGNUM* &sk, 
                          Twisted_ElGamal_CT &CT, 
                          BIGNUM* &m)
@@ -255,14 +254,16 @@ bool Twisted_ElGamal_Dec(Twisted_ElGamal_PP &pp,
     EC_POINT_invert(group, M, bn_ctx);          // M = -g^r
     EC_POINT_add(group, M, CT.Y, M, bn_ctx);    // M = h^m
 
-    //Brute_Search(m, pp.h, M);
-    bool success; 
-    //success = Preprocessing_Parallel_Shanks(m, pp.h, M); // use Shanks's algorithm to decrypt
-    success = Preprocessing_Shanks(m, pp.h, M); // use Shanks's algorithm to decrypt
-
+    //Brute_Search(m, pp.h, M); 
+    //bool success = Preprocessing_Parallel_Shanks(m, pp.h, M); // use Shanks's algorithm to decrypt
+    bool success = Preprocessing_Shanks(m, pp.h, M); // use Shanks's algorithm to decrypt
+  
     BN_free(sk_inverse); 
     EC_POINT_free(M);
-    return success;  
+    if(success == false)
+    {
+        throw "decyption fails in the specified range"; 
+    }  
 }
 
 
