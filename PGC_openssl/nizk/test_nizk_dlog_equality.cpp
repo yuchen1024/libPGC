@@ -1,9 +1,5 @@
 #define DEBUG
 
-#include "../common/global.hpp"
-#include "../depends/routines.hpp"
-#include "../depends/hash.hpp"
-
 #include "nizk_dlog_equality.hpp"
 
 void generate_random_instance_witness(DLOG_Equality_PP &pp, 
@@ -12,7 +8,7 @@ void generate_random_instance_witness(DLOG_Equality_PP &pp,
                                       bool flag)
 {
     // generate a true statement (false with overwhelming probability)
-    Print_Splitline('-'); 
+    SplitLine_print('-'); 
     if (flag == true){
         cout << ">>> generate a DDH tuple" << endl;
     }
@@ -20,12 +16,12 @@ void generate_random_instance_witness(DLOG_Equality_PP &pp,
         cout << ">>> generate a random tuple" << endl; 
     } 
     witness.w = BN_new(); 
-    random_zz(witness.w);  
+    BN_random(witness.w);  
 
     instance.g1 = EC_POINT_new(group); 
-    random_gg(instance.g1); 
+    ECP_random(instance.g1); 
     instance.g2 = EC_POINT_new(group); 
-    random_gg(instance.g2);
+    ECP_random(instance.g2);
 
     instance.h1 = EC_POINT_new(group); 
     EC_POINT_mul(group, instance.h1, NULL, instance.g1, witness.w, bn_ctx); 
@@ -34,7 +30,7 @@ void generate_random_instance_witness(DLOG_Equality_PP &pp,
 
     if(flag == false){
         EC_POINT *noisy = EC_POINT_new(group); 
-        random_gg(noisy);
+        ECP_random(noisy);
         EC_POINT_add(group, instance.h2, instance.h2, noisy, bn_ctx);
         EC_POINT_free(noisy);
     } 
@@ -44,36 +40,41 @@ void test_nizk_dlog_equality(bool flag)
 {
     cout << "begin the test of dlog equality proof (standard version) >>>" << endl; 
     
-    DLOG_Equality_PP pp; 
+    DLOG_Equality_PP pp;
+    NIZK_DLOG_Equality_PP_new(pp);  
     NIZK_DLOG_Equality_Setup(pp);
     DLOG_Equality_Instance instance; 
-    NIZK_DLOG_Equality_Instance_Init(instance); 
+    NIZK_DLOG_Equality_Instance_new(instance); 
     DLOG_Equality_Witness witness; 
-    NIZK_DLOG_Equality_Witness_Init(witness); 
+    NIZK_DLOG_Equality_Witness_new(witness); 
     DLOG_Equality_Proof proof; 
-    NIZK_DLOG_Equality_Proof_Init(proof); 
+    NIZK_DLOG_Equality_Proof_new(proof); 
 
-    string aux_str; 
+    string prove_transcript_str;
+    string verify_transcript_str;  
 
     // test the standard version
-    aux_str = "";
-
+    prove_transcript_str = "";
+    verify_transcript_str = ""; 
     generate_random_instance_witness(pp, instance, witness, flag); 
-    NIZK_DLOG_Equality_Prove(pp, instance, aux_str, witness, proof); 
-    NIZK_DLOG_Equality_Verify(pp, instance, aux_str, proof);
+    NIZK_DLOG_Equality_Prove(pp, instance, witness, prove_transcript_str, proof); 
+    NIZK_DLOG_Equality_Verify(pp, instance, verify_transcript_str, proof);
 
     cout << endl; 
     cout << "begin the test of dlog equality proof (auxiliary version) >>>" << endl; 
 
     // test the auxiliary version
-    aux_str = "now we test the auxiliary version";
-    generate_random_instance_witness(pp, instance, witness, flag); 
-    NIZK_DLOG_Equality_Prove(pp, instance, aux_str, witness, proof); 
-    NIZK_DLOG_Equality_Verify(pp, instance, aux_str, proof);
 
-    NIZK_DLOG_Equality_Instance_Free(instance);
-    NIZK_DLOG_Equality_Witness_Free(witness);
-    NIZK_DLOG_Equality_Proof_Free(proof);
+    prove_transcript_str = "now we test the auxiliary version";
+    verify_transcript_str = "now we test the auxiliary version"; 
+    generate_random_instance_witness(pp, instance, witness, flag); 
+    NIZK_DLOG_Equality_Prove(pp, instance, witness, prove_transcript_str, proof); 
+    NIZK_DLOG_Equality_Verify(pp, instance, verify_transcript_str, proof);
+
+    NIZK_DLOG_Equality_PP_free(pp); 
+    NIZK_DLOG_Equality_Instance_free(instance);
+    NIZK_DLOG_Equality_Witness_free(witness);
+    NIZK_DLOG_Equality_Proof_free(proof);
 }
 
 int main()

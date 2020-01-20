@@ -5,31 +5,23 @@ this hpp implements the inner product proof system
 * @paper      https://eprint.iacr.org/2019/319
 * @copyright  MIT license (see LICENSE file)
 ***********************************************************************************/
-#include "stdio.h"
-#include <iostream>
-#include <string>
-#include <sstream>
-#include <fstream>
-#include <algorithm> 
-#include <vector>
-#include <cmath>
-#include <openssl/obj_mac.h>
-#include <openssl/ec.h>
-#include <openssl/bn.h>
-#include <openssl/sha.h>
-#include <openssl/err.h>
+#ifndef __IP__
+#define __IP__
 
-using namespace std; 
+#include "../global/global.hpp"
+#include "../depends/hash.hpp"
+#include "../depends/print.hpp"
+#include "../depends/routines.hpp"
 
 // define the structure of InnerProduct Proof
 struct InnerProduct_PP
 {
-    uint64_t VECTOR_LEN;      // denotes the size of witness (witness is upto l = 2^VECTOR_LEN)
-    uint64_t LOG_VECTOR_LEN;  // LOG_VECTOR_LEN = log(VECTOR_LEN) 
+    size_t VECTOR_LEN;      // denotes the size of witness (witness is upto l = 2^VECTOR_LEN)
+    size_t LOG_VECTOR_LEN;  // LOG_VECTOR_LEN = log(VECTOR_LEN) 
     
     // size of the vector = VECTOR_LEN
-    vector<EC_POINT*> vec_g; 
-    vector<EC_POINT*> vec_h; 
+    vector<EC_POINT *> vec_g; 
+    vector<EC_POINT *> vec_h; 
 };
 
 //P = vec_g^vec_a vec_h^vec_b u^<vec_a, vec_b>
@@ -42,171 +34,148 @@ struct InnerProduct_Instance
 struct InnerProduct_Witness
 {
     // size of the vector = VECTOR_LEN
-    vector<BIGNUM*> vec_a; 
-    vector<BIGNUM*> vec_b; 
+    vector<BIGNUM *> vec_a; 
+    vector<BIGNUM *> vec_b; 
 };
 
 struct InnerProduct_Proof
 {
     // size of the vector = LOG_VECTOR_LEN
-    vector<EC_POINT*> vec_L; 
-    vector<EC_POINT*> vec_R; 
+    vector<EC_POINT *> vec_L; 
+    vector<EC_POINT *> vec_R; 
     BIGNUM *a; 
     BIGNUM *b;     
 };
 
-void Serialize_InnerProduct_Proof(InnerProduct_Proof &proof, ofstream &fout)
+void InnerProduct_Proof_serialize(InnerProduct_Proof &proof, ofstream &fout)
 {
-    Serialize_vec_GG(proof.vec_L, fout);
-    Serialize_vec_GG(proof.vec_R, fout);
+    ECP_vec_serialize(proof.vec_L, fout);
+    ECP_vec_serialize(proof.vec_R, fout);
 
-    Serialize_ZZ(proof.a, fout); 
-    Serialize_ZZ(proof.b, fout); 
+    BN_serialize(proof.a, fout); 
+    BN_serialize(proof.b, fout); 
 }
 
-void Deserialize_InnerProduct_Proof(InnerProduct_Proof &proof, ifstream &fin)
+void InnerProduct_Proof_deserialize(InnerProduct_Proof &proof, ifstream &fin)
 {
-    Deserialize_vec_GG(proof.vec_L, fin);
-    Deserialize_vec_GG(proof.vec_R, fin);
+    ECP_vec_deserialize(proof.vec_L, fin);
+    ECP_vec_deserialize(proof.vec_R, fin);
 
-    Deserialize_ZZ(proof.a, fin); 
-    Deserialize_ZZ(proof.b, fin); 
+    BN_deserialize(proof.a, fin); 
+    BN_deserialize(proof.b, fin); 
 }
 
-void Print_InnerProduct_PP(InnerProduct_PP &pp)
+void InnerProduct_PP_print(InnerProduct_PP &pp)
 {
     cout << "vector length = " << pp.VECTOR_LEN << endl;   
     cout << "log vector length = " << pp.LOG_VECTOR_LEN << endl;   
     
     // size of the vector = VECTOR_LEN
-    print_vec_gg(pp.vec_g, "g"); 
-    print_vec_gg(pp.vec_h, "h"); 
+    ECP_vec_print(pp.vec_g, "g"); 
+    ECP_vec_print(pp.vec_h, "h"); 
 
 };
 
-void Print_InnerProduct_Witness(InnerProduct_Witness &witness)
+void InnerProduct_Witness_print(InnerProduct_Witness &witness)
 {
-    print_vec_zz(witness.vec_a, "a"); 
-    print_vec_zz(witness.vec_b, "b"); 
+    BN_vec_print(witness.vec_a, "a"); 
+    BN_vec_print(witness.vec_b, "b"); 
 };
 
-void Print_InnerProduct_Instance(InnerProduct_Instance &instance)
+void InnerProduct_Instance_print(InnerProduct_Instance &instance)
 {
-    print_gg(instance.P, "ip_instance.P"); 
-    print_gg(instance.u, "ip_instance.u"); 
+    ECP_print(instance.P, "ip_instance.P"); 
+    ECP_print(instance.u, "ip_instance.u"); 
 };
 
-void Print_InnerProduct_Proof(InnerProduct_Proof &proof)
+void InnerProduct_Proof_print(InnerProduct_Proof &proof)
 {
-    print_vec_gg(proof.vec_L, "L");
-    print_vec_gg(proof.vec_R, "R");
-    print_zz(proof.a, "proof.a"); 
-    print_zz(proof.b, "proof.b"); 
+    ECP_vec_print(proof.vec_L, "L");
+    ECP_vec_print(proof.vec_R, "R");
+    BN_print(proof.a, "proof.a"); 
+    BN_print(proof.b, "proof.b"); 
 };
 
-void InnerProduct_PP_Init(InnerProduct_PP &pp, uint64_t VECTOR_LEN)
+void InnerProduct_PP_new(InnerProduct_PP &pp, size_t VECTOR_LEN)
 {
-    pp.vec_g.resize(VECTOR_LEN); 
-    pp.vec_h.resize(VECTOR_LEN); 
-    for(size_t i = 0; i < VECTOR_LEN; i++)
-    {
-        pp.vec_g[i] = EC_POINT_new(group); 
-        pp.vec_h[i] = EC_POINT_new(group);
-    }
+    pp.vec_g.resize(VECTOR_LEN); ECP_vec_new(pp.vec_g);
+    pp.vec_h.resize(VECTOR_LEN); ECP_vec_new(pp.vec_h);
 }
 
-void InnerProduct_Instance_Init(InnerProduct_Instance &instance)
+void InnerProduct_PP_free(InnerProduct_PP &pp)
+{
+    ECP_vec_free(pp.vec_g); 
+    ECP_vec_free(pp.vec_h);
+}
+
+void InnerProduct_Instance_new(InnerProduct_Instance &instance)
 {
     instance.u = EC_POINT_new(group); 
     instance.P = EC_POINT_new(group);
 }
 
-void InnerProduct_Witness_Init(InnerProduct_Witness &witness, uint64_t VECTOR_LEN)
-{
-    witness.vec_a.resize(VECTOR_LEN); 
-    witness.vec_b.resize(VECTOR_LEN); 
-    for(size_t i = 0; i < VECTOR_LEN; i++)
-    {
-        witness.vec_a[i] = BN_new(); 
-        witness.vec_b[i] = BN_new();
-    }
-}
-
-void InnerProduct_Proof_Init(InnerProduct_Proof &proof)
-{
-    proof.a = BN_new(); 
-    proof.b = BN_new(); 
-}
-
-void InnerProduct_PP_Free(InnerProduct_PP &pp)
-{
-    for(size_t i = 0; i < pp.VECTOR_LEN; i++)
-    {
-        EC_POINT_free(pp.vec_g[i]); 
-        EC_POINT_free(pp.vec_h[i]);
-    }
-}
-
-void InnerProduct_Instance_Free(InnerProduct_Instance &instance)
+void InnerProduct_Instance_free(InnerProduct_Instance &instance)
 {
     EC_POINT_free(instance.u); 
     EC_POINT_free(instance.P);
 }
 
-void InnerProduct_Witness_Free(InnerProduct_Witness &witness)
+void InnerProduct_Witness_new(InnerProduct_Witness &witness, uint64_t VECTOR_LEN)
 {
-    for(size_t i = 0; i < witness.vec_a.size(); i++)
-    {
-        BN_free(witness.vec_a[i]); 
-        BN_free(witness.vec_b[i]);
-    }
+    witness.vec_a.resize(VECTOR_LEN); 
+    witness.vec_b.resize(VECTOR_LEN); 
+    BN_vec_new(witness.vec_a); 
+    BN_vec_new(witness.vec_b); 
 }
 
-void InnerProduct_Proof_Free(InnerProduct_Proof &proof)
+void InnerProduct_Witness_free(InnerProduct_Witness &witness)
 {
-    for(size_t i = 0; i < proof.vec_L.size(); i++)
-    {
-        EC_POINT_free(proof.vec_L[i]); 
-        EC_POINT_free(proof.vec_R[i]);
-    }
+    BN_vec_free(witness.vec_a); 
+    BN_vec_free(witness.vec_b); 
+}
+
+void InnerProduct_Proof_new(InnerProduct_Proof &proof)
+{
+    proof.a = BN_new(); 
+    proof.b = BN_new(); 
+}
+
+void InnerProduct_Proof_free(InnerProduct_Proof &proof)
+{
     BN_free(proof.a); 
     BN_free(proof.b); 
+
+    ECP_vec_free(proof.vec_L); 
+    ECP_vec_free(proof.vec_R);
+
+    proof.vec_L.resize(0); 
+    proof.vec_R.resize(0); 
 }
 
-//vector operations
 
-// generate a random ZZ vector
-void gen_random_vec_zz(vector<BIGNUM *>& vec_a)
+/* compute the jth bit of a big integer i (count from little endian to big endian) */
+inline uint64_t BN_parse_binary(BIGNUM *BN_i, uint64_t j)
 {
-    for(size_t i = 0; i < vec_a.size(); i++)
-    {
-        random_zz(vec_a[i]); 
-    }
-}
+    BIGNUM *BN_bit = BN_new(); 
+    BN_copy(BN_bit, BN_i); 
 
-// compute the jth bit of a big integer i (count from little endian to big endian)
-inline uint64_t big_parse_binary(BIGNUM* i, uint64_t j)
-{
-    BIGNUM *bn_bit = BN_new(); 
-    BN_copy(bn_bit, i); 
-
-    BN_rshift(bn_bit, bn_bit, j);
-    BN_mod(bn_bit, bn_bit, bn_2, bn_ctx);
+    BN_rshift(BN_bit, BN_bit, j);
+    BN_mod(BN_bit, BN_bit, BN_2, bn_ctx);
 
     uint64_t bit; 
-    if (BN_is_one(bn_bit)) bit = 1; 
+    if (BN_is_one(BN_bit)) bit = 1; 
     else bit = 0;
-    BN_free(bn_bit); 
+    BN_free(BN_bit); 
     return bit;  
 }
 
 
-// compute the jth bit of a small integer num \in [0, 2^{m-1}] (count from big endian to little endian)
-inline uint64_t small_parse_binary(uint64_t num, uint64_t j, uint64_t m)
+/* compute the jth bit of a small integer num \in [0, 2^{m-1}] (count from big endian to little endian) */ 
+inline uint64_t int_parse_binary(size_t num, size_t j, size_t m)
 { 
-    uint64_t cursor = 1 << (m-1); // set cursor = 2^{m-1} = 1||0...0---(m-1)
+    size_t cursor = 1 << (m-1); // set cursor = 2^{m-1} = 1||0...0---(m-1)
     
-    for (uint64_t i = 0; i < j; i++)
+    for (auto i = 0; i < j; i++)
     { 
         cursor = cursor >> 1;
     }
@@ -214,42 +183,42 @@ inline uint64_t small_parse_binary(uint64_t num, uint64_t j, uint64_t m)
     else return 0;   
 }
 
-// generate a^n = (a^0, a^1, a^2, ..., a^{n-1})
-inline void gen_vec_zz_power(vector<BIGNUM*> &result, BIGNUM* &a)
+/* generate a^n = (a^0, a^1, a^2, ..., a^{n-1}) */ 
+inline void BN_vec_gen_power(vector<BIGNUM *> &result, BIGNUM *&a)
 {
     BN_one(result[0]); // set result[0] = 1
-    for (size_t i = 1; i < result.size(); i++)
+    for (auto i = 1; i < result.size(); i++)
     {
         BN_mod_mul(result[i], a, result[i-1], order, bn_ctx); // result[i] = result[i-1]*a % order
     }
 }
 
-// assign left or right part of a Zn vector
-inline void vec_zz_assign(vector<BIGNUM*> &result, vector<BIGNUM*> &vec_a, string selector)
+/* assign left or right part of a Zn vector */ 
+inline void BN_vec_assign(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, string selector)
 {
-    size_t start_point; 
-    if (selector == "left") start_point = 0; 
-    if (selector == "right") start_point = vec_a.size()/2; 
+    size_t start_index; 
+    if (selector == "left") start_index = 0; 
+    if (selector == "right") start_index = vec_a.size()/2; 
     
-    for(size_t i = 0; i < result.size(); i++){
-        BN_copy(result[i], vec_a[start_point + i]); 
+    for(auto i = 0; i < result.size(); i++){
+        BN_copy(result[i], vec_a[start_index + i]); 
     }
 }
 
 // assign left or right part of an ECn vector
-inline void vec_gg_assign(vector<EC_POINT*> &result, vector<EC_POINT*> &vec_g, string selector)
+inline void ECP_vec_assign(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_g, string selector)
 {
-    size_t start_point; 
-    if (selector == "left") start_point = 0; 
-    if (selector == "right") start_point = vec_g.size()/2; 
+    size_t start_index; 
+    if (selector == "left") start_index = 0; 
+    if (selector == "right") start_index = vec_g.size()/2; 
     
-    for(size_t i = 0; i < result.size(); i++){
-        EC_POINT_copy(result[i], vec_g[start_point + i]); 
+    for(auto i = 0; i < result.size(); i++){
+        EC_POINT_copy(result[i], vec_g[start_index + i]); 
     }
 }
 
-// sum_i^n a[i]*b[i]
-inline void inner_product(BIGNUM* &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
+/* sum_i^n a[i]*b[i] */
+inline void BN_vec_inner_product(BIGNUM *&result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
 {
     BN_zero(result); // set result = 0
 
@@ -257,9 +226,10 @@ inline void inner_product(BIGNUM* &result, vector<BIGNUM *> &vec_a, vector<BIGNU
 
     if (vec_a.size() != vec_b.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }   
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mul(product, vec_a[i], vec_b[i], bn_ctx); // product = (vec_a[i]*vec_b[i]) mod order
         BN_add(result, result, product);     // result = (result+product) mod order
@@ -267,134 +237,139 @@ inline void inner_product(BIGNUM* &result, vector<BIGNUM *> &vec_a, vector<BIGNU
     BN_mod(result, result, order, bn_ctx);
 }
 
-// g[i] = g[i]+h[i]
-inline void vec_gg_add(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_g, vector<EC_POINT *> &vec_h)
+/* g[i] = g[i]+h[i] */ 
+inline void ECP_vec_add(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_A, vector<EC_POINT *> &vec_B)
 {
-    if (vec_g.size()!= vec_h.size()) 
+    if (vec_A.size()!= vec_B.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }
-    for (size_t i = 0; i < vec_g.size(); i++) 
+    for (auto i = 0; i < vec_A.size(); i++) 
     {
-        EC_POINT_add(group, result[i], vec_g[i], vec_h[i], bn_ctx); 
+        EC_POINT_add(group, result[i], vec_A[i], vec_B[i], bn_ctx); 
     }
 }
 
-// a[i] = (a[i]+b[i]) mod order
-inline void vec_zz_add(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
+/* a[i] = (a[i]+b[i]) mod order */
+inline void BN_vec_add(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
 {
     if (vec_a.size() != vec_b.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mod_add(result[i], vec_a[i], vec_b[i], order, bn_ctx);   
     }
 }
 
-// a[i] = (a[i]-b[i]) mod order
-inline void vec_zz_sub(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
+/* a[i] = (a[i]-b[i]) mod order */ 
+inline void BN_vec_sub(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
 {
     if (vec_a.size() != vec_b.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mod_sub(result[i], vec_a[i], vec_b[i], order, bn_ctx);
     } 
 }
 
-// c[i] = a[i]*b[i] mod order
-inline void vec_zz_product(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
+/* c[i] = a[i]*b[i] mod order */ 
+inline void BN_vec_product(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, vector<BIGNUM *> &vec_b)
 {
     if (vec_a.size() != vec_b.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }
     
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mod_mul(result[i], vec_a[i], vec_b[i], order, bn_ctx); // product = (vec_a[i]*vec_b[i]) mod order
     }
 }
 
-// compute the inverse of a[i]
-inline void vec_zz_inverse(vector<BIGNUM *> &vec_a_inverse, vector<BIGNUM *> &vec_a)
+/* compute the inverse of a[i] */ 
+inline void BN_vec_inverse(vector<BIGNUM *> &vec_a_inverse, vector<BIGNUM *> &vec_a)
 {
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mod_inverse(vec_a_inverse[i], vec_a[i], order, bn_ctx); 
     }
 }
 
-// vec_g = c * vec_g
-inline void vec_gg_scalar(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_g, BIGNUM* &c)
+/* vec_g = c * vec_g */ 
+inline void ECP_vec_scalar(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_A, BIGNUM* &c)
 {
-    for (size_t i = 0; i < vec_g.size(); i++) 
+    for (auto i = 0; i < vec_A.size(); i++) 
     {
-        EC_POINT_mul(group, result[i], NULL, vec_g[i], c, bn_ctx); // result[i] = vec_g[i]^c
+        EC_POINT_mul(group, result[i], NULL, vec_A[i], c, bn_ctx); // result[i] = vec_g[i]^c
     } 
 }
 
-// vec_a = c * vec_a
-inline void vec_zz_scalar(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, BIGNUM* &c)
+/* result[i] = c * a[i] */  
+inline void BN_vec_scalar(vector<BIGNUM *> &result, vector<BIGNUM *> &vec_a, BIGNUM* &c)
 {
-    for (size_t i = 0; i < vec_a.size(); i++) 
+    for (auto i = 0; i < vec_a.size(); i++) 
     {
         BN_mod_mul(result[i], vec_a[i], c, order, bn_ctx);
     } 
 }
 
-inline void vec_zz_negative(vector<BIGNUM*> &result)
+/* result[i] = -result[i] */  
+inline void BN_vec_negative(vector<BIGNUM *> &result)
 {
-    for (size_t i = 0; i < result.size(); i++) 
+    for (auto i = 0; i < result.size(); i++) 
     {
         BN_mod_negative(result[i]);
     } 
 }
 
-// g[i] = a[i]*g[i]
-inline void vec_gg_product(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_g, vector<BIGNUM *> &vec_a)
+/* result[i] = A[i]*a[i] */ 
+inline void ECP_vec_product(vector<EC_POINT *> &result, vector<EC_POINT *> &vec_A, vector<BIGNUM *> &vec_a)
 {
-    if (vec_g.size() != vec_a.size()) 
+    if (vec_A.size() != vec_a.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     } 
-    for (size_t i = 0; i < vec_g.size(); i++) 
+    for (auto i = 0; i < vec_A.size(); i++) 
     {
-        EC_POINT_mul(group, result[i], NULL, vec_g[i], vec_a[i], bn_ctx); // result[i] = vec_g[i]^vec_a[i]
+        EC_POINT_mul(group, result[i], NULL, vec_A[i], vec_a[i], bn_ctx); 
     } 
 }
 
-// sum_{i=1^n} a[i]*g[i]
-inline void vec_gg_mul(EC_POINT* &result, vector<EC_POINT *> &vec_g, vector<BIGNUM *> &vec_a)
+/* result = sum_{i=1^n} a[i]*A[i] */ 
+inline void ECP_vec_mul(EC_POINT* &result, vector<EC_POINT *> &vec_A, vector<BIGNUM *> &vec_a)
 {
-    if (vec_g.size() != vec_a.size()) {
-        throw "vector size does not match!";
+    if (vec_A.size() != vec_a.size()) {
+        cout << "vector size does not match!" << endl;
+        exit(EXIT_FAILURE); 
     }
-    EC_POINTs_mul(group, result, NULL, vec_g.size(), 
-    (const EC_POINT**)vec_g.data(), (const BIGNUM**)vec_a.data(), bn_ctx); // return result = h_i^e_i
+    EC_POINTs_mul(group, result, NULL, vec_A.size(), 
+                  (const EC_POINT**)vec_A.data(), (const BIGNUM**)vec_a.data(), bn_ctx); 
 }
 
-/* 
-    this module is used to enable fast verification (cf pp.15)
-*/
+/* this module is used to enable fast verification (cf pp.15) */
 void compute_vec_ss(vector<BIGNUM *> &vec_s, vector<BIGNUM *> &vec_x, vector<BIGNUM *> &vec_x_inverse)
 {
-    int m = vec_x.size(); 
-    int n = vec_s.size(); //int n = pow(2, m); 
+    size_t m = vec_x.size(); 
+    size_t n = vec_s.size(); //int n = pow(2, m); 
     
     // compute s[0], ..., s[i-1]
-    // vector<BIGNUM *> vec_s(n);
-    int i, j, flag; 
-    for (i = 0; i < n; i++)
+    // vector<BIGNUM *> vec_s(n); 
+    uint64_t flag; 
+    for (auto i = 0; i < n; i++)
     {
-        BN_one(vec_s[i]); // set bn_1 = 1
-        for (j = 0; j < m; j++)
+        BN_one(vec_s[i]); // set s[i] = 1
+        for (auto j = 0; j < m; j++)
         {
-            flag = small_parse_binary(i, j, m); 
+            flag = int_parse_binary(i, j, m); 
             if (flag == 1){
                 BN_mod_mul(vec_s[i], vec_s[i], vec_x[j], order, bn_ctx);
             } 
@@ -405,30 +380,36 @@ void compute_vec_ss(vector<BIGNUM *> &vec_s, vector<BIGNUM *> &vec_x, vector<BIG
     }
 } 
 
-// (Protocol 2 on pp.15)
-void InnerProduct_Setup(uint64_t n, InnerProduct_PP &pp)
+
+/* (Protocol 2 on pp.15) */
+void InnerProduct_Setup(InnerProduct_PP &pp, size_t VECTOR_LEN, bool INITIAL_FLAG)
 {
-    InnerProduct_PP_Init(pp, n); 
-    pp.VECTOR_LEN = n; 
-    pp.LOG_VECTOR_LEN = log2(n); 
-    random_vec_gg(pp.vec_g);
-    random_vec_gg(pp.vec_h);
+    pp.VECTOR_LEN = VECTOR_LEN;
+    pp.LOG_VECTOR_LEN = log2(VECTOR_LEN);  
+
+    if(INITIAL_FLAG == true){
+        ECP_vec_random(pp.vec_g);
+        ECP_vec_random(pp.vec_h);
+    }
 }
 
-// Generate an argument PI for Relation 3 on pp.13: P = g^a h^b u^<a,b> 
-// transcript_str is introduced to be used as a sub-protocol
+/* 
+    Generate an argument PI for Relation 3 on pp.13: P = g^a h^b u^<a,b> 
+    transcript_str is introduced to be used as a sub-protocol 
+*/
 void InnerProduct_Prove(InnerProduct_PP pp, 
                         InnerProduct_Instance instance, 
                         InnerProduct_Witness witness,
-                        string& transcript_str,  
+                        string &transcript_str,  
                         InnerProduct_Proof &proof)
 {
     if (pp.vec_g.size()!=pp.vec_h.size()) 
     {
-        throw "vector size does not match!";
+        cout << "vector size does not match!";
+        exit(EXIT_FAILURE); 
     }
 
-    uint64_t n = pp.VECTOR_LEN; // the current size of vec_G and vec_H
+    size_t n = pp.VECTOR_LEN; // the current size of vec_G and vec_H
 
     // the last round
     if (n == 1)
@@ -447,41 +428,41 @@ void InnerProduct_Prove(InnerProduct_PP pp,
     
         // prepare the log(n)-th round message
         vector<BIGNUM*> vec_aL(n), vec_aR(n), vec_bL(n), vec_bR(n);
-        vec_zz_init(vec_aL); 
-        vec_zz_init(vec_aR); 
-        vec_zz_init(vec_bL); 
-        vec_zz_init(vec_bR);  
+        BN_vec_new(vec_aL); 
+        BN_vec_new(vec_aR); 
+        BN_vec_new(vec_bL); 
+        BN_vec_new(vec_bR);  
         
         vector<EC_POINT*> vec_gL(n), vec_gR(n), vec_hL(n), vec_hR(n);
-        vec_gg_init(vec_gL); 
-        vec_gg_init(vec_gR); 
-        vec_gg_init(vec_hL); 
-        vec_gg_init(vec_hR);  
+        ECP_vec_new(vec_gL); 
+        ECP_vec_new(vec_gR); 
+        ECP_vec_new(vec_hL); 
+        ECP_vec_new(vec_hR);  
 
         // prepare aL, aR, bL, bR
-        vec_zz_assign(vec_aL, witness.vec_a, "left");
-        vec_zz_assign(vec_aR, witness.vec_a, "right"); 
-        vec_zz_assign(vec_bL, witness.vec_b, "left"); 
-        vec_zz_assign(vec_bR, witness.vec_b, "right");
+        BN_vec_assign(vec_aL, witness.vec_a, "left");
+        BN_vec_assign(vec_aR, witness.vec_a, "right"); 
+        BN_vec_assign(vec_bL, witness.vec_b, "left"); 
+        BN_vec_assign(vec_bR, witness.vec_b, "right");
 
-        vec_gg_assign(vec_gL, pp.vec_g, "left"); 
-        vec_gg_assign(vec_gR, pp.vec_g, "right"); 
-        vec_gg_assign(vec_hL, pp.vec_h, "left"); 
-        vec_gg_assign(vec_hR, pp.vec_h, "right");
+        ECP_vec_assign(vec_gL, pp.vec_g, "left"); 
+        ECP_vec_assign(vec_gR, pp.vec_g, "right"); 
+        ECP_vec_assign(vec_hL, pp.vec_h, "left"); 
+        ECP_vec_assign(vec_hR, pp.vec_h, "right");
 
         // compute cL, cR
         BIGNUM *cL = BN_new(); 
-        inner_product(cL, vec_aL, vec_bR); // Eq (21) 
+        BN_vec_inner_product(cL, vec_aL, vec_bR); // Eq (21) 
         BIGNUM *cR = BN_new(); 
-        inner_product(cR, vec_aR, vec_bL); // Eq (22)
+        BN_vec_inner_product(cR, vec_aR, vec_bL); // Eq (22)
 
         // compute L, R
-        EC_POINT *temp_epsum  = EC_POINT_new(group);         
-        EC_POINT *temp_ep1 = EC_POINT_new(group); 
-        EC_POINT *temp_ep2 = EC_POINT_new(group); 
+        EC_POINT *temp_ecpsum  = EC_POINT_new(group);         
+        EC_POINT *temp_ecp1 = EC_POINT_new(group); 
+        EC_POINT *temp_ecp2 = EC_POINT_new(group); 
 
-        vector<EC_POINT*> vec_A; 
-        vector<BIGNUM*> vec_a; 
+        vector<EC_POINT *> vec_A; 
+        vector<BIGNUM *> vec_a; 
 
         EC_POINT *L = EC_POINT_new(group); 
 
@@ -493,7 +474,7 @@ void InnerProduct_Prove(InnerProduct_PP pp,
         vec_a.insert(vec_a.end(), vec_bR.begin(), vec_bR.end());
         vec_a.emplace_back(cL); 
 
-        vec_gg_mul(L, vec_A, vec_a);  // Eq (23) 
+        ECP_vec_mul(L, vec_A, vec_a);  // Eq (23) 
 
         vec_A.clear(); vec_a.clear(); 
 
@@ -507,38 +488,39 @@ void InnerProduct_Prove(InnerProduct_PP pp,
         vec_a.insert(vec_a.end(), vec_bL.begin(), vec_bL.end());
         vec_a.emplace_back(cR); 
 
-        vec_gg_mul(R, vec_A, vec_a);  // Eq (24)
+        ECP_vec_mul(R, vec_A, vec_a);  // Eq (24)
 
-        (proof.vec_L).push_back(L); 
-        (proof.vec_R).push_back(R);  // store the n-th round L and R values
+        proof.vec_L.push_back(L); 
+        proof.vec_R.push_back(R);  // store the n-th round L and R values
 
         // compute the challenge
-        transcript_str += EC_POINT_ep2string(L) + EC_POINT_ep2string(R); 
+        transcript_str += ECP_ep2string(L) + ECP_ep2string(R); 
         BIGNUM *x = BN_new(); 
-        Hash_String_ZZ(x, transcript_str); // compute the n-th round challenge Eq (26,27)
+        Hash_String_to_BN(transcript_str, x); // compute the n-th round challenge Eq (26,27)
         BIGNUM *x_inverse = BN_new(); 
         BN_mod_inverse(x_inverse, x, order, bn_ctx);  
 
         // generate new pp
-        InnerProduct_PP pp_new;
-        pp_new.VECTOR_LEN = pp.VECTOR_LEN/2; 
-        pp_new.LOG_VECTOR_LEN = pp.LOG_VECTOR_LEN - 1; 
-        InnerProduct_PP_Init(pp_new, pp_new.VECTOR_LEN); 
+        InnerProduct_PP pp_sub;
+        // pp_sub.VECTOR_LEN = pp.VECTOR_LEN/2; 
+        // pp_sub.LOG_VECTOR_LEN = pp.LOG_VECTOR_LEN - 1; 
+        InnerProduct_PP_new(pp_sub, pp.VECTOR_LEN/2); 
+        InnerProduct_Setup(pp_sub, pp.VECTOR_LEN/2, false);
 
         // compute vec_g
-        vec_gg_scalar(vec_gL, vec_gL, x_inverse); 
-        vec_gg_scalar(vec_gR, vec_gR, x); 
-        vec_gg_add(pp_new.vec_g, vec_gL, vec_gR); // Eq (29)
+        ECP_vec_scalar(vec_gL, vec_gL, x_inverse); 
+        ECP_vec_scalar(vec_gR, vec_gR, x); 
+        ECP_vec_add(pp_sub.vec_g, vec_gL, vec_gR); // Eq (29)
         // compute vec_h
-        vec_gg_scalar(vec_hL, vec_hL, x); 
-        vec_gg_scalar(vec_hR, vec_hR, x_inverse); 
-        vec_gg_add(pp_new.vec_h, vec_hL, vec_hR); // Eq (30)
+        ECP_vec_scalar(vec_hL, vec_hL, x); 
+        ECP_vec_scalar(vec_hR, vec_hR, x_inverse); 
+        ECP_vec_add(pp_sub.vec_h, vec_hL, vec_hR); // Eq (30)
 
         // generate new instance
-        InnerProduct_Instance instance_new; 
-        InnerProduct_Instance_Init(instance_new); 
+        InnerProduct_Instance instance_sub; 
+        InnerProduct_Instance_new(instance_sub); 
 
-        EC_POINT_copy(instance_new.u, instance.u); // instance_new.u = instance.u 
+        EC_POINT_copy(instance_sub.u, instance.u); // instance_new.u = instance.u 
  
         BIGNUM *x_square = BN_new(); 
         BIGNUM *x_inverse_square = BN_new(); 
@@ -548,29 +530,28 @@ void InnerProduct_Prove(InnerProduct_PP pp,
         vec_A.clear(); vec_a.clear(); 
         vec_A.resize(3); vec_a.resize(3);
         vec_A[0] = L; vec_A[1] = instance.P; vec_A[2] = R; 
-        vec_a[0] = x_square; vec_a[1] = bn_1; vec_a[2] = x_inverse_square; 
+        vec_a[0] = x_square; vec_a[1] = BN_1; vec_a[2] = x_inverse_square; 
 
-        vec_gg_mul(instance_new.P, vec_A, vec_a); // Eq (31) P' = L^{x^2} P R^{x^{-2}}
+        ECP_vec_mul(instance_sub.P, vec_A, vec_a); // Eq (31) P' = L^{x^2} P R^{x^{-2}}
 
         // generate new witness
-        InnerProduct_Witness witness_new; 
-        InnerProduct_Witness_Init(witness_new, pp_new.VECTOR_LEN); 
+        InnerProduct_Witness witness_sub; 
+        InnerProduct_Witness_new(witness_sub, pp_sub.VECTOR_LEN); 
     
-        vec_zz_scalar(vec_aL, vec_aL, x); 
-        vec_zz_scalar(vec_aR, vec_aR, x_inverse); 
-        vec_zz_add(witness_new.vec_a, vec_aL, vec_aR); // Eq (33)
+        BN_vec_scalar(vec_aL, vec_aL, x); 
+        BN_vec_scalar(vec_aR, vec_aR, x_inverse); 
+        BN_vec_add(witness_sub.vec_a, vec_aL, vec_aR); // Eq (33)
 
-        vec_zz_scalar(vec_bL, vec_bL, x_inverse); 
-        vec_zz_scalar(vec_bR, vec_bR, x); 
-        vec_zz_add(witness_new.vec_b, vec_bL, vec_bR); // Eq (34)
+        BN_vec_scalar(vec_bL, vec_bL, x_inverse); 
+        BN_vec_scalar(vec_bR, vec_bR, x); 
+        BN_vec_add(witness_sub.vec_b, vec_bL, vec_bR); // Eq (34)
 
         // recursively invoke the InnerProduct proof
-        InnerProduct_Prove(pp_new, instance_new, witness_new, transcript_str, proof); 
-
+        InnerProduct_Prove(pp_sub, instance_sub, witness_sub, transcript_str, proof); 
         //cout << "begin to free " << n << " memory" << endl; 
-        InnerProduct_PP_Free(pp_new); 
-        InnerProduct_Instance_Free(instance_new);
-        InnerProduct_Witness_Free(witness_new);  
+        InnerProduct_PP_free(pp_sub); 
+        InnerProduct_Instance_free(instance_sub);
+        InnerProduct_Witness_free(witness_sub);  
 
         // free temporary variables
         BN_free(cL); 
@@ -578,21 +559,19 @@ void InnerProduct_Prove(InnerProduct_PP pp,
         BN_free(x), BN_free(x_inverse); 
         BN_free(x_square), BN_free(x_inverse_square); 
 
-        vec_zz_free(vec_aL); 
-        vec_zz_free(vec_aR); 
-        vec_zz_free(vec_bL); 
-        vec_zz_free(vec_bR);  
+        BN_vec_free(vec_aL); 
+        BN_vec_free(vec_aR); 
+        BN_vec_free(vec_bL); 
+        BN_vec_free(vec_bR);  
         
-        vec_gg_free(vec_gL); 
-        vec_gg_free(vec_gR); 
-        vec_gg_free(vec_hL); 
-        vec_gg_free(vec_hR);  
+        ECP_vec_free(vec_gL); 
+        ECP_vec_free(vec_gR); 
+        ECP_vec_free(vec_hL); 
+        ECP_vec_free(vec_hR);  
     }
 }
 
-/*
-    Check if PI is a valid proof for inner product statement (G1^w = H1 and G2^w = H2)
-*/
+/* Check if PI is a valid proof for inner product statement (G1^w = H1 and G2^w = H2) */
 bool InnerProduct_Verify(InnerProduct_PP &pp, 
                          InnerProduct_Instance &instance, 
                          string &transcript_str, 
@@ -606,16 +585,15 @@ bool InnerProduct_Verify(InnerProduct_PP &pp,
     vector<BIGNUM *> vec_x_square(pp.LOG_VECTOR_LEN); // the vector of challenge 
     vector<BIGNUM *> vec_x_inverse_square(pp.LOG_VECTOR_LEN); // the vector of challenge inverse
 
-    vec_zz_init(vec_x); 
-    vec_zz_init(vec_x_inverse); 
-    vec_zz_init(vec_x_square); 
-    vec_zz_init(vec_x_inverse_square); 
+    BN_vec_new(vec_x); 
+    BN_vec_new(vec_x_inverse); 
+    BN_vec_new(vec_x_square); 
+    BN_vec_new(vec_x_inverse_square); 
 
-    //cout << "recover the challenges" << endl; 
-    for (size_t i = 0; i < pp.LOG_VECTOR_LEN; i++)
+    for (auto i = 0; i < pp.LOG_VECTOR_LEN; i++)
     {  
-        transcript_str += EC_POINT_ep2string(proof.vec_L[i]) + EC_POINT_ep2string(proof.vec_R[i]); 
-        Hash_String_ZZ(vec_x[i], transcript_str); // reconstruct the challenge
+        transcript_str += ECP_ep2string(proof.vec_L[i]) + ECP_ep2string(proof.vec_R[i]); 
+        Hash_String_to_BN(transcript_str, vec_x[i]); // reconstruct the challenge
 
         BN_mod_sqr(vec_x_square[i], vec_x[i], order, bn_ctx); 
         BN_mod_inverse(vec_x_inverse[i], vec_x[i], order, bn_ctx);  
@@ -629,13 +607,13 @@ bool InnerProduct_Verify(InnerProduct_PP &pp,
     // compute left
     vector<BIGNUM *> vec_s(pp.VECTOR_LEN); 
     vector<BIGNUM *> vec_s_inverse(pp.VECTOR_LEN); 
-    vec_zz_init(vec_s); 
-    vec_zz_init(vec_s_inverse); 
+    BN_vec_new(vec_s); 
+    BN_vec_new(vec_s_inverse); 
 
     compute_vec_ss(vec_s, vec_x, vec_x_inverse); // page 15: the s vector
-    vec_zz_inverse(vec_s_inverse, vec_s);  // the s^{-1} vector
-    vec_zz_scalar(vec_s, vec_s, proof.a); 
-    vec_zz_scalar(vec_s_inverse, vec_s_inverse, proof.b); 
+    BN_vec_inverse(vec_s_inverse, vec_s);  // the s^{-1} vector
+    BN_vec_scalar(vec_s, vec_s, proof.a); 
+    BN_vec_scalar(vec_s_inverse, vec_s_inverse, proof.b); 
 
     vec_A.assign(pp.vec_g.begin(), pp.vec_g.end()); 
     vec_a.assign(vec_s.begin(), vec_s.end()); // pp.vec_g, vec_s
@@ -650,7 +628,7 @@ bool InnerProduct_Verify(InnerProduct_PP &pp,
 
     EC_POINT* LEFT = EC_POINT_new(group);
 
-    vec_gg_mul(LEFT, vec_A, vec_a); 
+    ECP_vec_mul(LEFT, vec_A, vec_a); 
 
     // compute right
     EC_POINT *RIGHT = EC_POINT_new(group); 
@@ -660,11 +638,11 @@ bool InnerProduct_Verify(InnerProduct_PP &pp,
     vec_A.insert(vec_A.end(), proof.vec_L.begin(), proof.vec_L.end()); 
     vec_A.insert(vec_A.end(), proof.vec_R.begin(), proof.vec_R.end()); 
 
-    vec_a.emplace_back(bn_1); 
+    vec_a.emplace_back(BN_1); 
     vec_a.insert(vec_a.end(), vec_x_square.begin(), vec_x_square.end()); 
     vec_a.insert(vec_a.end(), vec_x_inverse_square.begin(), vec_x_inverse_square.end()); 
 
-    vec_gg_mul(RIGHT, vec_A, vec_a);  
+    ECP_vec_mul(RIGHT, vec_A, vec_a);  
 
     // the equation on top of page 17
     if (EC_POINT_cmp(group, LEFT, RIGHT, bn_ctx) == 0) 
@@ -685,17 +663,19 @@ bool InnerProduct_Verify(InnerProduct_PP &pp,
     EC_POINT_free(LEFT); 
     EC_POINT_free(RIGHT); 
 
-    vec_zz_free(vec_x); 
-    vec_zz_free(vec_x_inverse); 
-    vec_zz_free(vec_x_square); 
-    vec_zz_free(vec_x_inverse_square); 
+    BN_vec_free(vec_x); 
+    BN_vec_free(vec_x_inverse); 
+    BN_vec_free(vec_x_square); 
+    BN_vec_free(vec_x_inverse_square); 
 
-    vec_zz_free(vec_s); 
-    vec_zz_free(vec_s_inverse); 
+    BN_vec_free(vec_s); 
+    BN_vec_free(vec_s_inverse); 
     BN_free(temp_bn); 
 
     return Validity;
 }
+
+#endif
 
 
 
