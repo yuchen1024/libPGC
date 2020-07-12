@@ -8,12 +8,12 @@ this hpp implements the PGC functionality
 #ifndef __PGC__
 #define __PGC__
 
-#include "../twisted_elgamal/twisted_elgamal.hpp"        // implement Twisted ElGamal  
-#include "../nizk/nizk_plaintext_equality.hpp" // NIZKPoK for plaintext equality
-#include "../nizk/nizk_plaintext_knowledge.hpp"        // NIZKPoK for ciphertext/honest encryption 
-#include "../nizk/nizk_dlog_equality.hpp"      // NIZKPoK for dlog equality
-#include "../bulletproofs/aggregate_bulletproof.hpp"    // implement Log Size Bulletproof
-#include "../gadgets/gadgets.hpp"    // implement Log Size Bulletproof
+#include "../depends/twisted_elgamal/twisted_elgamal.hpp"        // implement Twisted ElGamal  
+#include "../depends/nizk/nizk_plaintext_equality.hpp" // NIZKPoK for plaintext equality
+#include "../depends/nizk/nizk_plaintext_knowledge.hpp"        // NIZKPoK for ciphertext/honest encryption 
+#include "../depends/nizk/nizk_dlog_equality.hpp"      // NIZKPoK for dlog equality
+#include "../depends/bulletproofs/aggregate_bulletproof.hpp"    // implement Log Size Bulletproof
+#include "../depends/gadgets/gadgets.hpp"    // implement Log Size Bulletproof
 
 #define DEMO           // demo mode 
 //#define DEBUG        // show debug information 
