@@ -25,7 +25,8 @@ struct PGC_PP{
     size_t AGG_NUM;    // number of aggregated proofs (for now, we require m to be the power of 2)
     size_t SN_LEN;    // sn length
     size_t TUNNING; 
-    size_t THREAD_NUM; // used by twisted ElGamal
+    size_t DEC_THREAD_NUM; 
+    size_t IO_THREAD_NUM; // used by twisted ElGamal
 
     BIGNUM *BN_MAXIMUM_COINS; 
 
@@ -77,7 +78,8 @@ void PGC_PP_print(PGC_PP &pp)
     cout << "AGG_NUM = " << pp.AGG_NUM << endl; // number of sub-argument (for now, we require m to be the power of 2)
 
     cout << "SN_LEN = " << pp.SN_LEN << endl;  
-    cout << "THREAD_NUM = " << pp.THREAD_NUM << endl; 
+    cout << "IO_THREAD_NUM = " << pp.IO_THREAD_NUM << endl; 
+    cout << "DEC_THREAD_NUM = " << pp.DEC_THREAD_NUM << endl; 
     cout << "TUNNING = " << pp.TUNNING << endl; 
 
     ECP_print(pp.g, "g"); 
@@ -232,7 +234,8 @@ void Get_Gadget_PP(PGC_PP &pp, Gadget_PP &gadget_pp)
     gadget_pp.LOG_RANGE_LEN = log2(pp.RANGE_LEN);
     
     gadget_pp.TUNNING = pp.TUNNING; 
-    gadget_pp.THREAD_NUM = pp.THREAD_NUM; 
+    gadget_pp.DEC_THREAD_NUM = pp.DEC_THREAD_NUM; 
+    gadget_pp.IO_THREAD_NUM = pp.IO_THREAD_NUM; 
 
     gadget_pp.g = pp.g; 
     gadget_pp.h = pp.h; 
@@ -245,7 +248,8 @@ void Get_Enc_PP(PGC_PP &pp, Twisted_ElGamal_PP &enc_pp)
 {
     enc_pp.MSG_LEN = pp.RANGE_LEN; 
     enc_pp.TUNNING = pp.TUNNING;
-    enc_pp.THREAD_NUM = pp.THREAD_NUM;  
+    enc_pp.DEC_THREAD_NUM = pp.DEC_THREAD_NUM; 
+    enc_pp.IO_THREAD_NUM = pp.IO_THREAD_NUM;  
     enc_pp.BN_MSG_SIZE = pp.BN_MAXIMUM_COINS; 
     enc_pp.g = pp.g; 
     enc_pp.h = pp.h;  
@@ -276,7 +280,8 @@ void PGC_PP_serialize(PGC_PP &pp, string pgc_pp_file)
     fout.write((char *)(&pp.LOG_RANGE_LEN), sizeof(pp.LOG_RANGE_LEN));
     fout.write((char *)(&pp.AGG_NUM), sizeof(pp.AGG_NUM));
     fout.write((char *)(&pp.SN_LEN), sizeof(pp.SN_LEN));
-    fout.write((char *)(&pp.THREAD_NUM), sizeof(pp.THREAD_NUM));
+    fout.write((char *)(&pp.DEC_THREAD_NUM), sizeof(pp.DEC_THREAD_NUM));
+    fout.write((char *)(&pp.IO_THREAD_NUM), sizeof(pp.IO_THREAD_NUM));
     fout.write((char *)(&pp.TUNNING), sizeof(pp.TUNNING));
 
     BN_serialize(pp.BN_MAXIMUM_COINS, fout);  
@@ -297,7 +302,8 @@ void PGC_PP_deserialize(PGC_PP &pp, string pgc_pp_file)
     fin.read((char *)(&pp.LOG_RANGE_LEN), sizeof(pp.LOG_RANGE_LEN));
     fin.read((char *)(&pp.AGG_NUM), sizeof(pp.AGG_NUM));
     fin.read((char *)(&pp.SN_LEN), sizeof(pp.SN_LEN));
-    fin.read((char *)(&pp.THREAD_NUM), sizeof(pp.THREAD_NUM));
+    fin.read((char *)(&pp.DEC_THREAD_NUM), sizeof(pp.DEC_THREAD_NUM));
+    fin.read((char *)(&pp.IO_THREAD_NUM), sizeof(pp.IO_THREAD_NUM));
     fin.read((char *)(&pp.TUNNING), sizeof(pp.TUNNING));
 
     BN_deserialize(pp.BN_MAXIMUM_COINS, fin);
@@ -395,13 +401,14 @@ void PGC_CTx_deserialize(PGC_CTx &newCTx, string pgc_ctx_file)
 
 /* This function implements Setup algorithm of PGC */
 void PGC_Setup(PGC_PP &pp, size_t RANGE_LEN, size_t AGG_NUM, 
-               size_t SN_LEN, size_t THREAD_NUM, size_t TUNNING)
+               size_t SN_LEN, size_t DEC_THREAD_NUM, size_t IO_THREAD_NUM, size_t TUNNING)
 {
     pp.RANGE_LEN = RANGE_LEN; 
     pp.LOG_RANGE_LEN = log2(RANGE_LEN); 
     pp.AGG_NUM = AGG_NUM; 
     pp.SN_LEN = SN_LEN;
-    pp.THREAD_NUM = THREAD_NUM; 
+    pp.DEC_THREAD_NUM = DEC_THREAD_NUM;
+    pp.IO_THREAD_NUM = IO_THREAD_NUM;  
     pp.TUNNING = TUNNING; 
 
     EC_POINT_copy(pp.g, generator); 

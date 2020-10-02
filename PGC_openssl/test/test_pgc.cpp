@@ -10,11 +10,12 @@ void build_test_enviroment()
     size_t RANGE_LEN = 32; // set the range to be [0, 2^32-1]
     size_t AGG_NUM = 2; 
     size_t SN_LEN = 4; 
-    size_t THREAD_NUM = 4; 
+    size_t DEC_THREAD_NUM = 4;
+    size_t IO_THREAD_NUM = 4; 
     size_t TUNNING = 7; 
     PGC_PP pp; 
     PGC_PP_new(pp, RANGE_LEN, AGG_NUM); 
-    PGC_Setup(pp, RANGE_LEN, AGG_NUM, SN_LEN, THREAD_NUM, TUNNING); 
+    PGC_Setup(pp, RANGE_LEN, AGG_NUM, SN_LEN, DEC_THREAD_NUM, IO_THREAD_NUM, TUNNING); 
     string PGC_PP_file = "pgc.pp"; 
     PGC_PP_serialize(pp, PGC_PP_file); 
 

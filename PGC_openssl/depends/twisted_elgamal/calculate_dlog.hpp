@@ -67,7 +67,7 @@ void HASHMAP_serialize(EC_POINT *&g, string hashmap_file, size_t RANGE_LEN, size
 }
 
 /* rebuild hash map from hashmap file */
-void HASHMAP_load(string hashmap_file, size_t RANGE_LEN, size_t TUNNING)
+void HASHMAP_deserialize(string hashmap_file, size_t RANGE_LEN, size_t TUNNING)
 {   
     cout << "hash map already exists, begin to load and rebuild >>>" << endl; 
 
@@ -197,9 +197,94 @@ bool Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h, size_t RANGE_LEN, size_
     return finding; 
 }
 
+/* parallel implementation: include parallel serialization and decryption */
 
+
+/* parallelizable serialize task */
+void ECP_vector_serialize(EC_POINT *&g, EC_POINT *&ECP_startpoint, uint64_t &startindex, 
+                          uint64_t &length, unsigned char* buffer)
+{    
+    for(auto i = 0; i < length; i++)
+    {
+        EC_POINT_point2oct(group, ECP_startpoint, POINT_CONVERSION_COMPRESSED, 
+                           buffer+((startindex+i)*POINT_LEN), POINT_LEN, NULL); 
+        EC_POINT_add(group, ECP_startpoint, ECP_startpoint, g, NULL); 
+    } 
+}
+
+
+/* build the hash map */
+void Parallel_HASHMAP_serialize(EC_POINT *&g, string hashmap_file, size_t RANGE_LEN, 
+                                size_t TUNNING, uint64_t IO_THREAD_NUM)
+{
+    cout << "hash map does not exist, begin to build and serialize >>>" << endl; 
+
+    auto start_time = chrono::steady_clock::now(); // start to count the time
+    uint64_t giantstep_size = pow(2, RANGE_LEN/2 + TUNNING); // giantstep size
+
+    BIGNUM *BN_range = BN_new(); 
+
+    if(giantstep_size%IO_THREAD_NUM != 0)
+    {
+        cout << "thread assignment fails" << endl; 
+        exit(EXIT_FAILURE); 
+    }
+    uint64_t length = giantstep_size/IO_THREAD_NUM; 
+
+    vector<EC_POINT *> ECP_startpoint(IO_THREAD_NUM); 
+    vector<uint64_t> startindex(IO_THREAD_NUM); 
+    for (auto i = 0; i < IO_THREAD_NUM; i++){
+        startindex[i] = i * length; 
+        ECP_startpoint[i] = EC_POINT_new(group);
+        BN_set_word(BN_range, startindex[i]);
+        EC_POINT_mul(group, ECP_startpoint[i], NULL, g, BN_range, bn_ctx);
+    } 
+
+    unsigned char *buffer = new unsigned char[giantstep_size*POINT_LEN]();
+    if(buffer == NULL)
+    {
+        cout << "fail to create buffer" << endl; 
+        exit(EXIT_FAILURE); 
+    } 
+
+    vector<thread> initialize_task;
+    for(auto i = 0; i < IO_THREAD_NUM; i++){ 
+        initialize_task.push_back(std::thread(ECP_vector_serialize, 
+                                  std::ref(g), std::ref(ECP_startpoint[i]), 
+                                  std::ref(startindex[i]), std::ref(length), std::ref(buffer)));
+    }
+
+    for(auto i = 0; i < IO_THREAD_NUM; i++){ 
+        initialize_task[i].join(); 
+    }    
+
+    // serialize buffer to hashmap_file
+    ofstream fout; 
+    fout.open(hashmap_file, ios::binary); 
+    if(!fout)
+    {
+        cout << hashmap_file << " open error" << endl;
+        exit(1); 
+    }
+    fout.write(reinterpret_cast<char *>(buffer), giantstep_size*POINT_LEN); 
+    fout.close(); 
+    delete[] buffer; 
+        
+    auto end_time = chrono::steady_clock::now(); // end to count the time
+    auto running_time = end_time - start_time;
+    cout << "hash map building and serializing takes time = " 
+        << chrono::duration <double, milli> (running_time).count() << " ms" << endl;
+    
+    BN_free(BN_range); 
+    for (auto i = 0; i < IO_THREAD_NUM; i++){
+        EC_POINT_free(ECP_startpoint[i]);  
+    } 
+}
+
+/* parallelizable search task */
 void search_index(EC_POINT *&ECP_searchpoint, EC_POINT *&ECP_giantstep, 
-                  uint64_t &sliced_loop_num, uint64_t &i, uint64_t &j, int &finding, int &parallel_finding)
+                  uint64_t &sliced_loop_num, uint64_t &i, uint64_t &j, 
+                  int &finding, int &parallel_finding)
 {    
     string ecp_str; 
     unsigned char *buffer = new unsigned char[sliced_loop_num*POINT_LEN](); 
@@ -235,7 +320,7 @@ void search_index(EC_POINT *&ECP_searchpoint, EC_POINT *&ECP_giantstep,
 }
 
 bool Parallel_Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h, 
-                          size_t RANGE_LEN, size_t TUNNING, uint64_t thread_num)
+                          size_t RANGE_LEN, size_t TUNNING, uint64_t DEC_THREAD_NUM)
 {
     uint64_t giantstep_size = pow(2, RANGE_LEN/2 + TUNNING); 
     uint64_t loop_num  = pow(2, RANGE_LEN/2 - TUNNING); 
@@ -247,8 +332,8 @@ bool Parallel_Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h,
     EC_POINT_mul(group, ECP_giantstep, NULL, g, BN_giantstep_size, bn_ctx); // set giantstep = g^giantstep_size
     EC_POINT_invert(group, ECP_giantstep, bn_ctx);
  
-    uint64_t sliced_loop_num = loop_num/thread_num; 
-    if(loop_num%thread_num != 0)
+    uint64_t sliced_loop_num = loop_num/DEC_THREAD_NUM; 
+    if(loop_num%DEC_THREAD_NUM != 0)
     {
         cout << "thread assignment fails" << endl; 
         exit(EXIT_FAILURE); 
@@ -260,21 +345,21 @@ bool Parallel_Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h,
     EC_POINT_mul(group, ECP_smallscale, NULL, ECP_giantstep, BN_sliced_loop_num, bn_ctx);
 
     /* begin to search */
-    vector<uint64_t> i_index(thread_num); 
-    vector<uint64_t> j_index(thread_num);
+    vector<uint64_t> i_index(DEC_THREAD_NUM); 
+    vector<uint64_t> j_index(DEC_THREAD_NUM);
 
     // initialize searchpoint vector
-    vector<EC_POINT*> ECP_searchpoint(thread_num);
-    for (auto i = 0; i < thread_num; i++){
+    vector<EC_POINT*> ECP_searchpoint(DEC_THREAD_NUM);
+    for (auto i = 0; i < DEC_THREAD_NUM; i++){
         ECP_searchpoint[i] = EC_POINT_new(group);         
     }   
      
     EC_POINT_copy(ECP_searchpoint[0], h);
-    for (auto i = 1; i < thread_num; i++){
+    for (auto i = 1; i < DEC_THREAD_NUM; i++){
         EC_POINT_add(group, ECP_searchpoint[i], ECP_searchpoint[i-1], ECP_smallscale, bn_ctx);         
     }
     
-    vector<int> finding(thread_num, 0); 
+    vector<int> finding(DEC_THREAD_NUM, 0); 
     int parallel_finding = 0; 
 
     // check if the hash map is empty
@@ -285,21 +370,21 @@ bool Parallel_Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h,
     }
 
     vector<thread> searchtask;
-    for(auto i = 0; i < thread_num; i++){ 
+    for(auto i = 0; i < DEC_THREAD_NUM; i++){ 
         searchtask.push_back(std::thread(search_index, std::ref(ECP_searchpoint[i]), 
                              std::ref(ECP_giantstep), std::ref(sliced_loop_num), 
                              std::ref(i_index[i]), std::ref(j_index[i]), 
                              std::ref(finding[i]), std::ref(parallel_finding)));
     }
 
-    for(auto i = 0; i < thread_num; i++){ 
+    for(auto i = 0; i < DEC_THREAD_NUM; i++){ 
         searchtask[i].join(); 
     }    
 
     BIGNUM* BN_i = BN_new();
     BIGNUM* BN_j = BN_new();
 
-    for(auto i = 0; i < thread_num; i++)
+    for(auto i = 0; i < DEC_THREAD_NUM; i++)
     { 
         if(finding[i] == 1)
         {
@@ -320,7 +405,7 @@ bool Parallel_Shanks_DLOG(BIGNUM *&x, EC_POINT *&g, EC_POINT *&h,
 
     EC_POINT_free(ECP_smallscale); 
 
-    for (auto i = 0; i < thread_num; i++){
+    for (auto i = 0; i < DEC_THREAD_NUM; i++){
         EC_POINT_free(ECP_searchpoint[i]);         
     } 
 

@@ -11,8 +11,9 @@ void test_twisted_elgamal()
     Twisted_ElGamal_PP_new(pp);
     size_t MSG_LEN = 32; 
     size_t TUNNING = 7; 
-    size_t THREAD_NUM = 4;     
-    Twisted_ElGamal_Setup(pp, MSG_LEN, TUNNING, THREAD_NUM);
+    size_t DEC_THREAD_NUM = 4;
+    size_t IO_THREAD_NUM = 4;      
+    Twisted_ElGamal_Setup(pp, MSG_LEN, TUNNING, DEC_THREAD_NUM, IO_THREAD_NUM);
     Twisted_ElGamal_Initialize(pp); 
 
     Twisted_ElGamal_KP keypair;

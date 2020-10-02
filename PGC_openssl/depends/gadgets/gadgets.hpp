@@ -19,7 +19,8 @@ struct Gadget_PP{
     size_t RANGE_LEN; // the maximum coin value is 2^RANGE_LEN 
     size_t LOG_RANGE_LEN; // this parameter will be used by Bulletproof
     size_t TUNNING; 
-    size_t THREAD_NUM; // used by twisted ElGamal
+    size_t IO_THREAD_NUM; 
+    size_t DEC_THREAD_NUM; // used by twisted ElGamal
 
     EC_POINT *g; 
     EC_POINT *h;
@@ -34,7 +35,8 @@ void Get_Enc_PP_from_Gadget_PP(Gadget_PP &pp, Twisted_ElGamal_PP &enc_pp)
     enc_pp.g = pp.g; 
     enc_pp.h = pp.h;  
     enc_pp.TUNNING = pp.TUNNING; 
-    enc_pp.THREAD_NUM = pp.THREAD_NUM; 
+    enc_pp.DEC_THREAD_NUM = pp.DEC_THREAD_NUM; 
+    enc_pp.IO_THREAD_NUM = pp.IO_THREAD_NUM; 
 }
 
 void Get_Bullet_PP_from_Gadget_PP(Gadget_PP &pp, Bullet_PP &bullet_pp)

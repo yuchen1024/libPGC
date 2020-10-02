@@ -23,7 +23,8 @@ struct Twisted_ElGamal_PP
     size_t MSG_LEN; // the length of message space, also the length of the DLOG interval  
     BIGNUM *BN_MSG_SIZE; // the size of message space
     size_t TUNNING; //increase this parameter in [0, RANGE_LEN/2]: larger table leads to less running time
-    size_t THREAD_NUM; // optimized number of threads for faster decryption: CPU dependent
+    size_t IO_THREAD_NUM; // optimized number of threads for faster building hash map 
+    size_t DEC_THREAD_NUM; // optimized number of threads for faster decryption: CPU dependent
 
     EC_POINT *g; 
     EC_POINT *h; // two random generators 
@@ -159,11 +160,13 @@ void MR_Twisted_ElGamal_CT_deserialize(MR_Twisted_ElGamal_CT &CT, ifstream& fin)
 }
 
 /* Setup algorithm */ 
-void Twisted_ElGamal_Setup(Twisted_ElGamal_PP &pp, size_t MSG_LEN, size_t TUNNING, size_t THREAD_NUM)
+void Twisted_ElGamal_Setup(Twisted_ElGamal_PP &pp, size_t MSG_LEN, size_t TUNNING, 
+                           size_t IO_THREAD_NUM, size_t DEC_THREAD_NUM)
 { 
     pp.MSG_LEN = MSG_LEN; 
     pp.TUNNING = TUNNING; 
-    pp.THREAD_NUM = THREAD_NUM; 
+    pp.IO_THREAD_NUM = IO_THREAD_NUM;
+    pp.DEC_THREAD_NUM = DEC_THREAD_NUM;  
     /* set the message space to 2^{MSG_LEN} */
     BN_set_word(pp.BN_MSG_SIZE, uint64_t(pow(2, pp.MSG_LEN))); 
 
@@ -188,9 +191,11 @@ void Twisted_ElGamal_Initialize(Twisted_ElGamal_PP &pp)
     /* generate or load the point2index.table */
     if(!FILE_exist(hashmap_file))
     {
-        HASHMAP_serialize(pp.h, hashmap_file, pp.MSG_LEN, pp.TUNNING); // generate and serialize the point_2_index table
+        // generate and serialize the point_2_index table
+        Parallel_HASHMAP_serialize(pp.h, hashmap_file, pp.MSG_LEN, pp.TUNNING, pp.IO_THREAD_NUM); 
     }
-    HASHMAP_load(hashmap_file, pp.MSG_LEN, pp.TUNNING);            // load the table from file 
+    // load the table from file 
+    HASHMAP_deserialize(hashmap_file, pp.MSG_LEN, pp.TUNNING);            
 }
 
 /* KeyGen algorithm */ 
@@ -401,7 +406,7 @@ void Twisted_ElGamal_Parallel_Dec(Twisted_ElGamal_PP &pp, BIGNUM *&sk, Twisted_E
     EC_POINT_invert(group, M, bn_ctx);          // M = -g^r
     EC_POINT_add(group, M, CT.Y, M, bn_ctx);    // M = h^m
 
-    bool success = Parallel_Shanks_DLOG(m, pp.h, M, pp.MSG_LEN, pp.TUNNING, pp.THREAD_NUM); // use Shanks's algorithm to decrypt
+    bool success = Parallel_Shanks_DLOG(m, pp.h, M, pp.MSG_LEN, pp.TUNNING, pp.DEC_THREAD_NUM); // use Shanks's algorithm to decrypt
   
     BN_free(sk_inverse); 
     EC_POINT_free(M);
