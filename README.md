@@ -7,6 +7,11 @@ This library provides two implementations in C++, one is based on MIRACL, the ot
 
 ---
 
+## Updates
+This library is obsoleted due to the inefficiency of MIRACL and complicated interfaces of OpenSSL. 
+We refer to https://github.com/yuchen1024/Kunlun for a neat and efficient implementation. 
+
+---
 ## License
 
 This library is licensed under the [MIT License](LICENSE).
